@@ -20,6 +20,8 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
+                'docking_controller = pg1_docking_controller.docking_controller:main',
+
         ],
     },
 )
