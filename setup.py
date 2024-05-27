@@ -21,7 +21,7 @@ setup(
     entry_points={
         'console_scripts': [
                 'docking_controller = pg1_docking_controller.docking_controller:main',
-
+                'teleop_node = pg1_docking_controller.teleop_node:main'
         ],
     },
 )

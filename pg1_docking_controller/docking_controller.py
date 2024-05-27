@@ -36,28 +36,70 @@ class DockingController(Node):
         self.timer = self.create_timer(timer_period, self.timer_callback)
 
         self.rcv_timeout_secs = 1
-        self.angular_chase_multiplier = 0.7
+        self.angular_chase_multiplier = 0.1
         self.forward_chase_speed = 0.1
         self.search_angular_speed = 0.5
-        self.max_size_thresh = 0.1
+        self.max_size_thresh = 0.05
         self.filter_value = 0.9
+
+        self.swing_counter = 0
+        self.backtime_time = 2.5
+        self.is_backing_up = 0
+        self.at_target = 0
+        self.in_position = 0
+
 
 
         self.target_val = 0.0
         self.target_dist = 0.0
         self.lastrcvtime = time.time() - 10000
+        self.backtimestart = time.time() - 10000
 
     def timer_callback(self):
         msg = Twist()
-        if (time.time() - self.lastrcvtime < self.rcv_timeout_secs):
-            self.get_logger().info('Target: {}'.format(self.target_val))
-            print(self.target_dist)
-            if (self.target_dist < self.max_size_thresh):
-                msg.linear.x = self.forward_chase_speed
-            msg.angular.z = -self.angular_chase_multiplier*self.target_val
+        if(not self.at_target):
+            if (time.time() - self.lastrcvtime < self.rcv_timeout_secs or self.is_backing_up):
+                
+
+                if (self.target_dist < self.max_size_thresh and not self.in_position):
+                    self.backtimestart = time.time()
+                    self.get_logger().info('Target: {}'.format(self.target_val))
+
+                    msg.linear.x = -self.forward_chase_speed
+                    msg.angular.z = -self.angular_chase_multiplier*self.target_val
+                    
+                else:
+
+                    self.in_position = 1
+                    msg.angular.z = -self.angular_chase_multiplier*self.target_val
+
+                    if(time.time() - self.backtimestart < self.backtime_time and (abs(self.target_val) < 0.1 or self.is_backing_up)):
+                        msg.linear.x = -self.forward_chase_speed
+                        self.is_backing_up = 1
+                        self.get_logger().info('Backing up')
+                    elif (time.time() - self.backtimestart < self.backtime_time and abs(self.target_val) >= 0.1):
+                        self.backtimestart = time.time()
+                        msg.angular.z = -self.angular_chase_multiplier*self.target_val
+                        self.get_logger().info('aligning')
+                    else:
+                        self.at_target = 1
+
+            else:
+                self.get_logger().info('Target lost')
+
+
+                if(self.swing_counter < 20):
+                    msg.angular.z = self.search_angular_speed
+                elif(self.swing_counter < 40):
+                    msg.angular.z = -self.search_angular_speed
+                elif(self.swing_counter >= 40):
+                    self.swing_counter = 0
+
+                self.swing_counter += 1
         else:
-            self.get_logger().info('Target lost')
-            msg.angular.z = self.search_angular_speed
+            print('arrived at target')
+
+
         self.publisher_.publish(msg)
 
     def listener_callback(self, msg):
